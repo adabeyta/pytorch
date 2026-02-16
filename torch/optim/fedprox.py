@@ -151,14 +151,6 @@ FedProx.__doc__ = (
         {_foreach_doc}
         {_differentiable_doc}
 
-    Example:
-        >>> # xdoctest: +SKIP
-        >>> optimizer = torch.optim.FedProx(model.parameters(), lr=0.1, mu=0.01)
-        >>> optimizer.set_global_params(global_model.parameters())
-        >>> optimizer.zero_grad()
-        >>> loss_fn(model(input), target).backward()
-        >>> optimizer.step()
-
     .. note::
         Call :meth:`set_global_params` before :meth:`step` at each federated round.
         When :math:`\mu = 0`, FedProx reduces to standard SGD.
