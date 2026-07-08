@@ -112,3 +112,10 @@
 - tag: out_variant
   desc: |
           Deprecated, does nothing. Use "out" instead.
+- tag: has_side_effects
+  desc: |
+          This tag indicates that the operator has side effects that are not
+          visible to the tensor system (e.g. file I/O). Defs registered with
+          this tag are pinned to AliasAnalysisKind::CONSERVATIVE so that
+          optimization passes such as TorchScript dead code elimination never
+          remove calls to the operator.

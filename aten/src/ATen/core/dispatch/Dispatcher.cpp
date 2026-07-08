@@ -242,6 +242,15 @@ RegistrationHandleRAII Dispatcher::registerDef(FunctionSchema schema, std::strin
   // we need a lock to avoid concurrent writes
   std::lock_guard<std::mutex> lock(guard_->mutex);
 
+  // has_side_effects pins the schema to CONSERVATIVE alias analysis so
+  // passes like TorchScript DCE never remove calls to the op.
+  for (const auto& tag : tags) {
+    if (tag == at::Tag::has_side_effects) {
+      schema.setAliasAnalysis(AliasAnalysisKind::CONSERVATIVE);
+      break;
+    }
+  }
+
   OperatorName op_name = schema.operator_name();
   auto op = findOrRegisterName_(op_name);
 

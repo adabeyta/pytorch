@@ -2,6 +2,7 @@
 
 import torch
 from torch._C import parse_ir
+from torch.testing import FileCheck
 from torch.testing._internal.common_utils import (
     raise_on_run_directly,
     TemporaryFileName,
@@ -149,6 +150,30 @@ class TestAliasAnalysis(JitTestCase):
             mod = ModuleWrapper(module_list)
             mod = torch.jit.script(mod)
             mod(torch.zeros((2, 2)))
+
+    def test_has_side_effects_tag_prevents_dce(self):
+        # a -> () op looks pure to FROM_SCHEMA alias analysis and gets DCE'd;
+        # the has_side_effects tag pins it to CONSERVATIVE so the call survives
+        with torch.library._scoped_library("_TestAliasAnalysis", "DEF") as lib:
+            calls = []
+
+            def impl(f, d):
+                calls.append(f)
+
+            lib.define(
+                "side_effect_op(str f, Tensor d) -> ()",
+                tags=(torch.Tag.has_side_effects,),
+            )
+            lib.impl("side_effect_op", impl, "CompositeExplicitAutograd")
+
+            def fn(x: torch.Tensor):
+                tmp = x + 1
+                torch.ops._TestAliasAnalysis.side_effect_op("called", tmp)
+
+            scripted = torch.jit.script(fn)
+            scripted(torch.ones(2))
+            FileCheck().check("side_effect_op").run(scripted.graph)
+            self.assertEqual(calls, ["called"])
 
 
 if __name__ == "__main__":

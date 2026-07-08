@@ -212,6 +212,10 @@ AOTI_TORCH_EXPORT int32_t torch_tag_pt2_compliant_tag();
 AOTI_TORCH_EXPORT int32_t torch_tag_reduction();
 AOTI_TORCH_EXPORT int32_t torch_tag_view_copy();
 
+#if TORCH_FEATURE_VERSION >= TORCH_VERSION_2_13_0
+AOTI_TORCH_EXPORT int32_t torch_tag_has_side_effects();
+#endif
+
 // Stable corollary to torch::Library method m.def() with tags.
 // Tags are passed as int32_t values obtained from torch_tag_*() getters,
 // not raw enum ordinals, so the ABI is stable across versions.

@@ -752,6 +752,7 @@ TORCH_TAG_IMPL(pointwise, pointwise)
 TORCH_TAG_IMPL(pt2_compliant_tag, pt2_compliant_tag)
 TORCH_TAG_IMPL(reduction, reduction)
 TORCH_TAG_IMPL(view_copy, view_copy)
+TORCH_TAG_IMPL(has_side_effects, has_side_effects)
 #undef TORCH_TAG_IMPL
 
 AOTI_TORCH_EXPORT AOTITorchError torch_library_def_with_tags(

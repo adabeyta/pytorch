@@ -882,6 +882,10 @@ struct FromImpl<Tag> {
         return torch::stable::detail::from(torch_tag_reduction());
       case Tag::view_copy:
         return torch::stable::detail::from(torch_tag_view_copy());
+#if TORCH_FEATURE_VERSION >= TORCH_VERSION_2_13_0
+      case Tag::has_side_effects:
+        return torch::stable::detail::from(torch_tag_has_side_effects());
+#endif
       default:
         STD_TORCH_CHECK(
             false,
@@ -934,6 +938,10 @@ struct ToImpl<Tag> {
       return Tag::reduction;
     } else if (shim_tag == torch_tag_view_copy()) {
       return Tag::view_copy;
+#if TORCH_FEATURE_VERSION >= TORCH_VERSION_2_13_0
+    } else if (shim_tag == torch_tag_has_side_effects()) {
+      return Tag::has_side_effects;
+#endif
     } else {
       STD_TORCH_CHECK(
           false,
