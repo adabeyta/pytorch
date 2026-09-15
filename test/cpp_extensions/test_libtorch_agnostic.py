@@ -384,6 +384,34 @@ class TestLibtorchAgnostic(TestCase):
         pinned = torch.randn(2, 3, device="cpu", pin_memory=True)
         self.assertTrue(libtorch_agnostic.ops.my_is_pinned(pinned))
 
+    @skipIfTorchVersionLessThan(2, 10)
+    def test_my_flip(self, device):
+        import libtorch_agn_2_10 as libtorch_agnostic
+
+        t = torch.randn(2, 3, 4, device=device)
+
+        for dims in ([0], [1, 2], [-1], [-3, 1], [0, 1, 2], []):
+            result = libtorch_agnostic.ops.my_flip(t, dims)
+            self.assertEqual(result, torch.flip(t, dims))
+            # flip always returns a copy, never a view
+            self.assertNotEqual(result.data_ptr(), t.data_ptr())
+
+        # Non-contiguous input
+        t_view = t[:, ::2, :].transpose(0, 2)
+        result = libtorch_agnostic.ops.my_flip(t_view, [0, -1])
+        self.assertEqual(result, torch.flip(t_view, [0, -1]))
+
+        # Integer dtype
+        t_int = torch.arange(24, device=device, dtype=torch.int32).reshape(2, 3, 4)
+        result = libtorch_agnostic.ops.my_flip(t_int, [1])
+        self.assertEqual(result, torch.flip(t_int, [1]))
+
+        # Duplicate and out-of-range dims should raise
+        with self.assertRaises(RuntimeError):
+            libtorch_agnostic.ops.my_flip(t, [0, 0])
+        with self.assertRaises(RuntimeError):
+            libtorch_agnostic.ops.my_flip(t, [3])
+
     # These exercise the use case: a raw PyObject passed straight from Python
     # (GIL held, no dispatcher boxing) into from_pyobject / to_pyobject, via the
     # extension's importable PyMethodDef module (_interop).
