@@ -384,6 +384,48 @@ class TestLibtorchAgnostic(TestCase):
         pinned = torch.randn(2, 3, device="cpu", pin_memory=True)
         self.assertTrue(libtorch_agnostic.ops.my_is_pinned(pinned))
 
+    @skipIfTorchVersionLessThan(2, 10)
+    def test_my_sort(self, device):
+        import libtorch_agn_2_10 as libtorch_agnostic
+
+        # Small integer range so there are plenty of ties to exercise stable
+        t = torch.randint(0, 4, (3, 8, 5), device=device).float()
+
+        for dim in (-1, 0, 1, 2):
+            for descending in (False, True):
+                values, indices = libtorch_agnostic.ops.my_sort(
+                    t, True, dim, descending
+                )
+                expected = torch.sort(t, stable=True, dim=dim, descending=descending)
+                self.assertEqual(values, expected.values)
+                self.assertEqual(indices, expected.indices)
+                self.assertEqual(indices.dtype, torch.int64)
+
+        # Default arguments sort along the last dim in ascending order. With
+        # stable unset the index order among ties is unspecified, so only
+        # compare values.
+        values, indices = libtorch_agnostic.ops.my_sort(t)
+        self.assertEqual(values, torch.sort(t).values)
+        self.assertEqual(torch.gather(t, -1, indices), values)
+
+        # Non-contiguous input
+        t_view = t.transpose(0, 2)[:, ::2, :]
+        values, indices = libtorch_agnostic.ops.my_sort(t_view, True, 1, False)
+        expected = torch.sort(t_view, stable=True, dim=1)
+        self.assertEqual(values, expected.values)
+        self.assertEqual(indices, expected.indices)
+
+        # Integer dtype
+        t_int = torch.randint(-10, 10, (6, 7), device=device, dtype=torch.int32)
+        values, indices = libtorch_agnostic.ops.my_sort(t_int, True, 0, True)
+        expected = torch.sort(t_int, stable=True, dim=0, descending=True)
+        self.assertEqual(values, expected.values)
+        self.assertEqual(indices, expected.indices)
+
+        # Out-of-range dim should raise
+        with self.assertRaises(RuntimeError):
+            libtorch_agnostic.ops.my_sort(t, True, 3, False)
+
     # These exercise the use case: a raw PyObject passed straight from Python
     # (GIL held, no dispatcher boxing) into from_pyobject / to_pyobject, via the
     # extension's importable PyMethodDef module (_interop).

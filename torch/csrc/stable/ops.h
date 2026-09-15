@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <type_traits>
 
 #include <torch/csrc/inductor/aoti_torch/generated/c_shim_aten.h>
@@ -1328,6 +1329,39 @@ inline bool is_pinned(const torch::stable::Tensor& self) {
   STABLE_TORCH_ERROR_CODE_CHECK(torch_call_dispatcher(
       "aten::is_pinned", "", stack.data(), TORCH_ABI_VERSION));
   return torch::stable::detail::to<bool>(stack[0]);
+}
+
+/// Stable version of the sort.stable op.
+///
+/// Sorts the elements of the input tensor along the given dimension and
+/// returns the sorted values together with the indices of those elements in
+/// the original tensor.
+///
+/// Minimum compatible version: PyTorch 2.10.
+/// Build time minimum version: PyTorch 2.15.
+///
+/// @param self The input tensor.
+/// @param stable If true, equal elements keep their original order. Defaults
+///               to nullopt, which lets the kernel choose.
+/// @param dim The dimension to sort along. Defaults to the last dimension.
+/// @param descending If true, sort in descending order. Defaults to false.
+/// @return A tuple of the sorted values and their indices in the input.
+inline std::tuple<torch::stable::Tensor, torch::stable::Tensor> sort(
+    const torch::stable::Tensor& self,
+    std::optional<bool> stable = std::nullopt,
+    int64_t dim = -1,
+    bool descending = false) {
+  const auto num_args = 4;
+  std::array<StableIValue, num_args> stack{
+      torch::stable::detail::from(self),
+      torch::stable::detail::from(stable),
+      torch::stable::detail::from(dim),
+      torch::stable::detail::from(descending)};
+  STABLE_TORCH_ERROR_CODE_CHECK(torch_call_dispatcher(
+      "aten::sort", "stable", stack.data(), TORCH_ABI_VERSION));
+  return std::make_tuple(
+      torch::stable::detail::to<torch::stable::Tensor>(stack[0]),
+      torch::stable::detail::to<torch::stable::Tensor>(stack[1]));
 }
 
 #endif // TORCH_FEATURE_VERSION >= TORCH_VERSION_2_10_0
