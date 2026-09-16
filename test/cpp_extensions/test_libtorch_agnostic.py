@@ -2,7 +2,9 @@
 
 import gc
 import math
+import os
 import sysconfig
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -383,6 +385,58 @@ class TestLibtorchAgnostic(TestCase):
 
         pinned = torch.randn(2, 3, device="cpu", pin_memory=True)
         self.assertTrue(libtorch_agnostic.ops.my_is_pinned(pinned))
+
+    @onlyCPU
+    @skipIfTorchVersionLessThan(2, 10)
+    def test_my_from_file(self, device):
+        import libtorch_agn_2_10 as libtorch_agnostic
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "data.bin")
+            expected = torch.arange(24, dtype=torch.float32)
+            with open(path, "wb") as f:
+                f.write(expected.numpy().tobytes())
+
+            # The string filename crosses the stable boundary as a StableIValue.
+            result = libtorch_agnostic.ops.my_from_file(
+                path, shared=False, size=24, dtype=torch.float32
+            )
+            self.assertEqual(result, expected)
+            self.assertEqual(
+                result,
+                torch.from_file(path, shared=False, size=24, dtype=torch.float32),
+            )
+
+            # Read only the first 8 bytes as uint8 and as int16.
+            result_u8 = libtorch_agnostic.ops.my_from_file(
+                path, size=8, dtype=torch.uint8
+            )
+            self.assertEqual(
+                result_u8, torch.from_file(path, size=8, dtype=torch.uint8)
+            )
+            result_i16 = libtorch_agnostic.ops.my_from_file(
+                path, size=4, dtype=torch.int16
+            )
+            self.assertEqual(
+                result_i16, torch.from_file(path, size=4, dtype=torch.int16)
+            )
+
+            # A shared mapping writes back to the file.
+            shared = libtorch_agnostic.ops.my_from_file(
+                path, shared=True, size=24, dtype=torch.float32
+            )
+            shared.fill_(3.0)
+            del shared
+            self.assertEqual(
+                torch.from_file(path, size=24, dtype=torch.float32),
+                torch.full((24,), 3.0),
+            )
+
+            # A missing file is rejected.
+            with self.assertRaises(RuntimeError):
+                libtorch_agnostic.ops.my_from_file(
+                    os.path.join(tmpdir, "missing.bin"), size=1, dtype=torch.uint8
+                )
 
     # These exercise the use case: a raw PyObject passed straight from Python
     # (GIL held, no dispatcher boxing) into from_pyobject / to_pyobject, via the
