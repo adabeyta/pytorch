@@ -384,6 +384,62 @@ class TestLibtorchAgnostic(TestCase):
         pinned = torch.randn(2, 3, device="cpu", pin_memory=True)
         self.assertTrue(libtorch_agnostic.ops.my_is_pinned(pinned))
 
+    @skipIfTorchVersionLessThan(2, 10)
+    def test_my_masked_select(self, device):
+        import libtorch_agn_2_10 as libtorch_agnostic
+
+        t = torch.randn(3, 4, 5, device=device)
+        mask = t > 0
+        self.assertEqual(
+            libtorch_agnostic.ops.my_masked_select(t, mask),
+            torch.masked_select(t, mask),
+        )
+
+        # mask broadcasts against self
+        row_mask = torch.tensor([True, False, True, False, True], device=device)
+        self.assertEqual(
+            libtorch_agnostic.ops.my_masked_select(t, row_mask),
+            torch.masked_select(t, row_mask),
+        )
+
+        # non-contiguous input
+        tt = t.transpose(0, 2)
+        self.assertEqual(
+            libtorch_agnostic.ops.my_masked_select(tt, tt < 0),
+            torch.masked_select(tt, tt < 0),
+        )
+
+        # integer dtype
+        ti = torch.arange(12, device=device).reshape(3, 4)
+        self.assertEqual(
+            libtorch_agnostic.ops.my_masked_select(ti, ti % 2 == 0),
+            torch.masked_select(ti, ti % 2 == 0),
+        )
+
+        # all-false mask gives an empty 1-D result
+        empty = libtorch_agnostic.ops.my_masked_select(t, torch.zeros_like(mask))
+        self.assertEqual(empty.shape, (0,))
+        self.assertEqual(empty.dtype, t.dtype)
+
+        # 0-d input
+        s = torch.tensor(7.0, device=device)
+        self.assertEqual(
+            libtorch_agnostic.ops.my_masked_select(
+                s, torch.tensor(True, device=device)
+            ),
+            torch.masked_select(s, torch.tensor(True, device=device)),
+        )
+
+        # a non-boolean mask is rejected
+        with self.assertRaises(RuntimeError):
+            libtorch_agnostic.ops.my_masked_select(t, ti)
+
+        # a non-broadcastable mask is rejected
+        with self.assertRaises(RuntimeError):
+            libtorch_agnostic.ops.my_masked_select(
+                t, torch.ones(2, 4, 5, dtype=torch.bool, device=device)
+            )
+
     # These exercise the use case: a raw PyObject passed straight from Python
     # (GIL held, no dispatcher boxing) into from_pyobject / to_pyobject, via the
     # extension's importable PyMethodDef module (_interop).
