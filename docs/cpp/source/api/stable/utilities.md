@@ -159,6 +159,22 @@ auto memory_format = torch::headeronly::MemoryFormat::Contiguous;
 auto layout = torch::headeronly::Layout::Strided;
 ```
 
+### Accumulate Types
+
+`torch::headeronly::acc_type<T, is_cuda>` and `acc_type_device<T, DeviceType>`
+are header-only versions of `at::acc_type` / `at::acc_type_device`. They map an
+element type to the wider type a reduction should accumulate in, using the same
+tables as ATen: on CPU, `float` accumulates as `double`; on CUDA, XPU, and MPS,
+`float` and the reduced-precision floating types accumulate as `float`; integral
+types accumulate as `int64_t`.
+
+```cpp
+#include <torch/headeronly/core/AccumulateType.h>
+
+using acc_t = torch::headeronly::acc_type<torch::headeronly::Half, /*is_cuda=*/true>;  // float
+using cpu_acc_t = torch::headeronly::acc_type_device<float, torch::headeronly::DeviceType::CPU>;  // double
+```
+
 ### TensorAccessor
 
 `TensorAccessor` provides efficient, bounds-checked access to tensor data.
