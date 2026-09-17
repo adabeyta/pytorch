@@ -1,6 +1,7 @@
 #pragma once
 #include <torch/csrc/stable/c/shim.h>
 #include <torch/headeronly/macros/Macros.h>
+#include <torch/headeronly/util/Exception.h>
 
 #include <ctime>
 #include <iomanip>
@@ -38,6 +39,46 @@
 
 // Users of this macro are expected to include cuda_runtime.h
 #define STD_CUDA_KERNEL_LAUNCH_CHECK() STD_CUDA_CHECK(cudaGetLastError())
+
+// Stable-ABI equivalents of TORCH_WARN / TORCH_WARN_ONCE. The arguments are
+// streamed into one message like TORCH_WARN (unlike AOTI_TORCH_WARN, which
+// stringizes them) and handed to libtorch's warning handler through
+// aoti_torch_warn, so they surface wherever TORCH_WARN does, including
+// Python's warnings module. Under STRIP_ERROR_MESSAGES only the file name is
+// reported, and under DISABLE_WARN both macros compile to nothing, matching
+// their c10 counterparts.
+#ifdef DISABLE_WARN
+#define STD_TORCH_WARN(...) ((void)0)
+#define STD_TORCH_WARN_ONCE(...) ((void)0)
+#else
+#ifdef STRIP_ERROR_MESSAGES
+#define STD_TORCH_WARN_MSG(...) ("WARN at " C10_STRINGIZE(__FILE__))
+#else
+#define STD_TORCH_WARN_MSG(...) \
+  (torch::headeronly::detail::stdTorchCheckMsgImpl("", __VA_ARGS__))
+#endif // STRIP_ERROR_MESSAGES
+
+#define STD_TORCH_WARN(...)                                    \
+  do {                                                         \
+    aoti_torch_warn(                                           \
+        __func__,                                              \
+        __FILE__,                                              \
+        static_cast<uint32_t>(__LINE__),                       \
+        std::string(STD_TORCH_WARN_MSG(__VA_ARGS__)).c_str()); \
+  } while (0)
+
+// Warns the first time this call site runs and never again, via a
+// function-local static (the same mechanism as TORCH_WARN_ONCE). One known
+// difference: TORCH_WARN_ONCE warns on every call while
+// torch.set_warn_always(True) is set, but no stable shim exposes that flag yet,
+// so this macro cannot honor it.
+#define STD_TORCH_WARN_ONCE(...)                             \
+  [[maybe_unused]] static const bool C10_ANONYMOUS_VARIABLE( \
+      std_torch_warn_once_) = [&] {                          \
+    STD_TORCH_WARN(__VA_ARGS__);                             \
+    return true;                                             \
+  }()
+#endif // DISABLE_WARN
 
 #endif // TORCH_FEATURE_VERSION >= TORCH_VERSION_2_10_0
 

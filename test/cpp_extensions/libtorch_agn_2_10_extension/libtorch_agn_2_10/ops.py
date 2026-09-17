@@ -156,6 +156,30 @@ def test_get_num_threads() -> int:
     return torch.ops.libtorch_agn_2_10.test_get_num_threads.default()
 
 
+def test_std_torch_warn(value) -> None:
+    """
+    Emits one warning through STD_TORCH_WARN with the given value in the message.
+
+    Args:
+        value: int - value embedded in the warning message
+
+    Returns: None
+    """
+    torch.ops.libtorch_agn_2_10.test_std_torch_warn.default(value)
+
+
+def test_std_torch_warn_once(value) -> None:
+    """
+    Emits a warning through STD_TORCH_WARN_ONCE; only the first call warns.
+
+    Args:
+        value: int - value embedded in the warning message
+
+    Returns: None
+    """
+    torch.ops.libtorch_agn_2_10.test_std_torch_warn_once.default(value)
+
+
 def my_empty(
     size, dtype=None, layout=None, device=None, pin_memory=None, memory_format=None
 ) -> Tensor:

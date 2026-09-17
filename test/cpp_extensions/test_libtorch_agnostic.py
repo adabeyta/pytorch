@@ -4,6 +4,7 @@ import gc
 import math
 import sysconfig
 import unittest
+import warnings
 from pathlib import Path
 
 import torch
@@ -914,6 +915,34 @@ class TestLibtorchAgnostic(TestCase):
         num_threads = libtorch_agnostic.ops.test_get_num_threads()
         expected_num_threads = torch.get_num_threads()
         self.assertEqual(num_threads, expected_num_threads)
+
+    @skipIfTorchVersionLessThan(2, 10)
+    @onlyCPU
+    def test_std_torch_warn(self, device):
+        import libtorch_agn_2_10 as libtorch_agnostic
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            for value in (1, 2, 3):
+                libtorch_agnostic.ops.test_std_torch_warn(value)
+
+        self.assertEqual(len(w), 3)
+        for value, warning in zip((1, 2, 3), w):
+            self.assertIn(f"test_std_torch_warn value={value}", str(warning.message))
+
+    @skipIfTorchVersionLessThan(2, 10)
+    @onlyCPU
+    def test_std_torch_warn_once(self, device):
+        import libtorch_agn_2_10 as libtorch_agnostic
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            for value in (7, 8, 9):
+                libtorch_agnostic.ops.test_std_torch_warn_once(value)
+
+        self.assertEqual(len(w), 1)
+        self.assertIs(w[0].category, UserWarning)
+        self.assertIn("test_std_torch_warn_once value=7", str(w[0].message))
 
     @skipIfTorchVersionLessThan(2, 10)
     @parametrize("layout", [None, torch.strided, torch.sparse_coo])
